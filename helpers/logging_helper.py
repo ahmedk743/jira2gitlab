@@ -71,7 +71,8 @@ def oneline_frame_info(text: str = None, frame=None):
     frame = frame if frame else fi(cf().f_back)
     file = "/".join(frame.filename.split("/")[-2:])
     _text = text + " " if text else ""
-    return f"[{file}:{frame.lineno}.{frame.function}()]{_text}"
+    # return f"[{file}:{frame.lineno}.{frame.function}()]{_text}"
+    return f"{_text}"
 
 
 def log_frame_warning(_logger: logging.Logger, message: str = None, frame=None, **kwargs):

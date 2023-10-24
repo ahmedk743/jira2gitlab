@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # increase the number of retry connections
-requests.adapters.DEFAULT_RETRIES = 10
+requests.adapters.DEFAULT_RETRIES = 20
 
 # close redundant connections
 # requests uses the urllib3 library, the default http connection is keep-alive, requests set False to close.
@@ -449,7 +449,8 @@ def process_jira_issues_batch(batch_start_at, jira_project, gitlab_project_id, g
 
 def process_jira_issues(jira_project, gitlab_project_id, gl_milestones):
     try:
-        total_issues_count = process_jira_issues_batch(0, jira_project, gitlab_project_id, gl_milestones)
+        start_from = 0
+        total_issues_count = process_jira_issues_batch(start_from, jira_project, gitlab_project_id, gl_milestones)
         log_frame_info(logger, f"Found {total_issues_count} total jira issues")
 
         jira_pagination_size = int(JIRA_PAGINATION_SIZE)
@@ -457,11 +458,11 @@ def process_jira_issues(jira_project, gitlab_project_id, gl_milestones):
         jira_batch_max_workers = 5
 
         if total_issues_count is not None:
-            batches_count = math.ceil(total_issues_count / jira_pagination_size)
+            batches_count = math.ceil((total_issues_count - start_from) / jira_pagination_size)
             log_frame_info(logger, f"Creating {batches_count} batch requests for fetching jira issues from Jira")
 
             batches_starting_positions = []
-            last_batch_start = jira_pagination_size
+            last_batch_start = start_from
             for batch in range(batches_count):
                 last_batch_start += jira_pagination_size
                 batches_starting_positions.append(last_batch_start)
@@ -826,7 +827,7 @@ def process_jira_issue(index_issue, gitlab_project_id, total_count, gl_milestone
     except Exception as e:
         issue_process_statuses.append(False)
         exception_handler(e, args=dict(message=f"Error processing Jira Issue: {issue_key}",
-                                       issue=issue, gitlab_project_id=gitlab_project_id, gl_milestones=gl_milestones))
+                                       issue_key=issue_key, gitlab_project_id=gitlab_project_id, gl_milestones=gl_milestones))
 
 
 def migrate_project(jira_project, gitlab_project):
