@@ -119,11 +119,30 @@ def jira_text_2_gitlab_markdown(jira_project, text, adict):
 
     # Sections and links
     t = re.sub(r'(\r?\n){1}', r'  \1', t)  # line breaks
+
+    # Find HTML code not wrapped in {code} and format it as a code block
+    html_blocks = re.findall(r'<[^>]*>([\s\S]*?)<\/[^>]*>', t)
+
+    if not re.search(r'\{code\}', t):
+        # Find and format blocks with HTML code that is not wrapped in {code}
+        html_blocks = re.findall(r'<([a-z][\s\S]*?)>([\s\S]*?)<\/\1>|<([a-z][\s\S]*?)\s*\/>', t)
+        for tag1, block1, tag2 in html_blocks:
+            print ("This is a block being replaced: ", f'<{tag1}>{block1}</{tag1}>')
+            if tag1:
+                t = t.replace(f'<{tag1}>{block1}</{tag1}>', f'```\n<{tag1}>\n{block1}</{tag1}>\n```')
+            elif tag2:
+                print ("This is a block being replaced in tag2: ", f'<{tag2} />')
+                t = t.replace(f'<{tag2} />', f'```\n<{tag2} />\n```')
+
+    # for block in html_blocks:
+    #     print ("This is a block being replaced: ", block)
+    #     t = t.replace(f'<{block}>', f'```\n<{block}>\n{block}\n</{block}>\n```')
+
     t = re.sub(r'\{code\}\s*', r'\n```\n', t)  # Block code (simple)
     t = re.sub(r'\{code:(\w+)(?:\|\w+=[\w.\-]+)*\}\s*', r'\n```\1\n', t)  # Block code (with language and properties)
     t = re.sub(r'\{code:[^}]*\}\s*', r'\n```\n', t)  # Block code (catch-all, bailout to simple)
     t = re.sub(r'\n\s*bq\. (.*)\n', r'\n> \1\n', t)  # Block quote
-    t = re.sub(r'\{quote\}', r'\n>>>\n', t)  # Block quote #2
+    t = re.sub(r'\{quote\}', r'\n>\n', t)  # Block quote #2
     t = re.sub(r'\{color:[\#\w]+\}(.*)\{color\}', r'> **\1**', t)  # Colors
     t = re.sub(r'\n-{4,}\n', r'---', t)  # Ruler
     t = re.sub(r'\[~([a-z]+)\]', r'@\1', t)  # Links to users
@@ -449,7 +468,7 @@ def process_jira_issues_batch(batch_start_at, jira_project, gitlab_project_id, g
 
 def process_jira_issues(jira_project, gitlab_project_id, gl_milestones):
     try:
-        start_from = 0
+        start_from = 2100
         total_issues_count = process_jira_issues_batch(start_from, jira_project, gitlab_project_id, gl_milestones)
         log_frame_info(logger, f"Found {total_issues_count} total jira issues")
 
@@ -810,7 +829,7 @@ def process_jira_issue(index_issue, gitlab_project_id, total_count, gl_milestone
                 )
                 status.raise_for_status()
         except requests.exceptions.RequestException as e:
-            log_frame_error(logger, f"{e}\n")
+            log_frame_error(logger, 'SIQA_{issue_key} ' + f"{e}\n")
 
             requests.delete(
                 f"{GITLAB_API}/projects/{gitlab_project_id}/issues/{gl_issue['iid']}",
