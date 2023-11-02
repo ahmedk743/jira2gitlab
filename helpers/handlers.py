@@ -8,7 +8,7 @@ from helpers.logging_helper import log_frame_error
 from helpers.logging_helper import log_frame_warning
 from helpers.logging_helper import oneline_exc_info
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, "handlers.log")
 
 
 def exception_handler(e, do_exit=False, args=None):

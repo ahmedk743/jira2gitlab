@@ -1,2 +1,5 @@
-import_status.pickle
+*.pickle
 __pycache__
+
+# Log files
+*.log

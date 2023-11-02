@@ -8,6 +8,7 @@ from pprint import pformat
 
 import urllib3
 from urllib3.exceptions import InsecureRequestWarning
+from logging import FileHandler
 
 levels = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 
@@ -39,32 +40,35 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def get_logger(filename: str):
+def get_logger(filename: str, log_file: str):
     level = os.environ.get('LOG_LEVEL', 'DEBUG')
-    if level not in levels:
+    if level not in logging._nameToLevel:
         level = 'DEBUG'
 
     ch = logging.StreamHandler(sys.stdout)
-    # create formatter
-    formatter = CustomFormatter('%(asctime)s - %(levelname)s - %(message)s \r', True)
-    # add formatter to ch
+    fh = FileHandler(log_file)  # Create a FileHandler to log to a file
+
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    # Add formatter to handlers
     ch.setFormatter(formatter)
+    fh.setFormatter(formatter)
 
-    # add ch to logger
-    logging.basicConfig(force=True, handlers=[ch])
+    # Create a logger
+    custom_logger = logging.getLogger(filename)
+    custom_logger.setLevel(level)
 
-    logging.getLogger().setLevel(level)
+    # Add handlers to the logger
+    custom_logger.addHandler(ch)
+    custom_logger.addHandler(fh)
 
-    urllib3.disable_warnings(InsecureRequestWarning)
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     disable_loggers = ["urllib3", "requests"]
     for dl in disable_loggers:
         logging.getLogger(dl).setLevel("CRITICAL")
-    custom_logger = logging.getLogger(filename)
-    custom_logger.setLevel(level)
+
     return custom_logger
-
-
-logger = get_logger(__name__)
 
 
 def oneline_frame_info(text: str = None, frame=None):

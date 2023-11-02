@@ -32,7 +32,8 @@ from label_colors import create_or_update_label_colors
 from jira2gitlab_secrets import *
 from jira2gitlab_config import *
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, "logs.log")
+html_detection_logger = get_logger(__name__, "html_detection_logger.log")
 
 ### set library defaults
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -109,7 +110,7 @@ def jira_table_to_markdown(text):
 
 # Gitlab markdown : https://docs.gitlab.com/ee/user/markdown.html
 # Jira text formatting notation : https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all
-def jira_text_2_gitlab_markdown(jira_project, text, adict):
+def jira_text_2_gitlab_markdown(jira_project, text, adict, issue_key):
     if text is None:
         return ''
     t = text
@@ -121,18 +122,16 @@ def jira_text_2_gitlab_markdown(jira_project, text, adict):
     t = re.sub(r'(\r?\n){1}', r'  \1', t)  # line breaks
 
     # Find HTML code not wrapped in {code} and format it as a code block
-    html_blocks = re.findall(r'<[^>]*>([\s\S]*?)<\/[^>]*>', t)
-
     if not re.search(r'\{code\}', t):
         # Find and format blocks with HTML code that is not wrapped in {code}
         html_blocks = re.findall(r'<([a-z][\s\S]*?)>([\s\S]*?)<\/\1>|<([a-z][\s\S]*?)\s*\/>', t)
         for tag1, block1, tag2 in html_blocks:
-            print ("This is a block being replaced: ", f'<{tag1}>{block1}</{tag1}>')
+            log_frame_info(html_detection_logger, f"This is a HTML block being replaced for issue [{issue_key}]: <{tag1}>{block1}</{tag1}>" )
             if tag1:
                 t = t.replace(f'<{tag1}>{block1}</{tag1}>', f'```\n<{tag1}>\n{block1}</{tag1}>\n```')
             elif tag2:
-                print ("This is a block being replaced in tag2: ", f'<{tag2} />')
-                t = t.replace(f'<{tag2} />', f'```\n<{tag2} />\n```')
+                log_frame_info(html_detection_logger, f"This is a HTML block (self-closing) being replaced for issue [{issue_key}]:<{tag2} />" )
+                t = t.replace(f'<{tag2} />', f'\n```\n<{tag2} />\n```')
 
     # for block in html_blocks:
     #     print ("This is a block being replaced: ", block)
@@ -645,7 +644,7 @@ def process_jira_issue(index_issue, gitlab_project_id, total_count, gl_milestone
 
         # Create Gitlab issue
         # Add a link to the Jira issue and mention all attachments in the description
-        gl_description = jira_text_2_gitlab_markdown(jira_project, issue_fields['description'], replacements)
+        gl_description = jira_text_2_gitlab_markdown(jira_project, issue_fields['description'], replacements, issue_key)
         gl_description += "\n\n___\n\n"
         gl_description += f"**Imported from Jira issue [{issue_key}]({JIRA_URL}/browse/{issue_key})**\n\n"
 
@@ -722,7 +721,7 @@ def process_jira_issue(index_issue, gitlab_project_id, total_count, gl_milestone
                     verify=VERIFY_SSL_CERTIFICATE,
                     json={
                         'created_at': comment['created'],
-                        'body': notice + jira_text_2_gitlab_markdown(jira_project, comment['body'], replacements)
+                        'body': notice + jira_text_2_gitlab_markdown(jira_project, comment['body'], replacements, issue_key)
                     }
                 )
                 note_add.raise_for_status()
@@ -758,7 +757,7 @@ def process_jira_issue(index_issue, gitlab_project_id, total_count, gl_milestone
                     # not all worklogs have a comment
                     worklog_comment = ""
                     if "comment" in worklog:
-                        worklog_comment = jira_text_2_gitlab_markdown(jira_project, worklog['comment'], replacements)
+                        worklog_comment = jira_text_2_gitlab_markdown(jira_project, worklog['comment'], replacements, issue_key)
                     author = worklog['author']['name']
                     gl_author = resolve_login(author)['username']
                     if gl_author == GITLAB_ADMIN and author != 'jira':

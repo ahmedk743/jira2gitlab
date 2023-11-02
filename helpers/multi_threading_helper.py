@@ -5,7 +5,7 @@ from helpers.handlers import exception_handler
 from helpers.logging_helper import get_logger
 from helpers.logging_helper import log_frame_debug
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, "threading.log")
 
 
 def run_parallel_with_generic_args(function, *args, **kwargs):
